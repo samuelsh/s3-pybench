@@ -58,6 +58,7 @@ def get_args():
     parser.add_argument('-s', '--size', choices=['4K', '256K', '1M', '2M'], default="4K", help="Data file size")
     parser.add_argument('-w', '--workload', choices=['GET', 'PUT', 'DELETE', 'MIXED'], default="PUT",
                         help="Workload")
+    parser.add_argument('-m', '--multibucket', action="store_true", help="Creates new bucket for each process")
     args = parser.parse_args()
     return args
 
@@ -97,9 +98,10 @@ def s3_put_worker(**kwargs):
             full_object_name = "/".join([path, str(path_counter), object_name])
             try:
                 url = "/".join([kwargs['endpoint_url'], bucket_name, full_object_name])
-                session.put(url, data=data_chunk, auth=kwargs['auth'])
-            except requests.ConnectionError as con_err:
-                logger.error("{} : PUT {}".format(con_err.args[0], full_object_name))
+                res = session.put(url, data=data_chunk, auth=kwargs['auth'])
+                res.raise_for_status()
+            except (requests.ConnectionError, requests.HTTPError) as requests_err:
+                logger.error("{} : PUT {}".format(requests_err.args[0], full_object_name))
             except requests.Timeout as timeout:
                 logger.error("PUT request {} Timed out. {}".format(full_object_name, timeout.strerror))
             except KeyboardInterrupt:
@@ -172,18 +174,24 @@ def mkbucket(**kwargs):
     logger.debug("Bucket {} created".format(bucket.name))
 
 
-def process_pool_starter(method, bucket_name, processes, threads, hostname, data_chunk_size, s3_config):
+def process_pool_starter(args, data_chunk_size, s3_config):
     try:
-        mkbucket(config=s3_config, bucket_name=bucket_name)
+        if not args.multibucket:
+            mkbucket(config=s3_config, bucket_name=args.bucket)
+        else:
+            for i in range(args.processes):
+                mkbucket(config=s3_config, bucket_name=f"{args.bucket}-{i}")
     except ClientError as boto_err:
         if boto_err.response['ResponseMetadata']['HTTPStatusCode'] != 409:  # allow rewriting existing bucket content
             raise boto_err
 
-    with ProcessPoolExecutor(processes) as s3_process_pool:
-        for i in range(processes):
-            path = '/' + (hostname + '/' if hostname is not None else "") + str(i)
+    with ProcessPoolExecutor(args.processes) as s3_process_pool:
+        for i in range(args.processes):
+            path = '/' + (args.hostname + '/' if args.hostname is not None else "") + str(i)
             logger.info("Started work on path {}".format(path))
-            s3_process_pool.submit(gevent_pool_starter, method, bucket_name, path, threads, data_chunk_size, s3_config)
+            bucket_name = args.bucket if not args.multibucket else f"{args.bucket}-{i}"
+            s3_process_pool.submit(gevent_pool_starter, args.workload, bucket_name, path, args.threads,
+                                   data_chunk_size, s3_config)
 
 
 def main():
@@ -191,8 +199,7 @@ def main():
     s3_config = config.ensure_config()
     if not s3_config:
         raise RuntimeError("Bad or missing config file")
-    process_pool_starter(args.workload, args.bucket, args.processes, args.threads, args.hostname,
-                         DATA_CHUNKS[args.size], s3_config)
+    process_pool_starter(args, DATA_CHUNKS[args.size], s3_config)
 
 
 if __name__ == "__main__":
