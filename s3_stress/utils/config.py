@@ -13,6 +13,6 @@ def ensure_config():
             config = json.load(f)
         return config
     except FileNotFoundError:
-        print("Config file is missing. Please create one according to following example:")
+        print("Config file '~/.s3_config.json' is missing. Please create one according to following example:")
         print(json.dumps(sample_config, indent=4))
         return False

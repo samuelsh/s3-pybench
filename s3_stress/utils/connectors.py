@@ -22,7 +22,10 @@ def s3_connector(s3_method):
         vip_range = [ip for ip in ip_utils.range_ipv4(config['vip_start'], config['vip_end'])]
         final_vip = random.choice(vip_range)
 
-        endpoint_url = "http://{}:{}".format(final_vip, config['port'])
+        host = final_vip
+        # in AWS v4 standard port 80 isn't included in signature
+        host += f":{config['port']}" if config['port'] != 80 else ""
+        endpoint_url = f"http://{host}"
         s3_resource = boto3.resource('s3', use_ssl=False,
                                      endpoint_url=endpoint_url,
                                      aws_access_key_id=config['aws_access_key_id'],
@@ -31,7 +34,7 @@ def s3_connector(s3_method):
                                      region_name='us-east-1'
                                      )
         s3_client = s3_resource.meta.client
-        auth = do_sign_request(config, f"{final_vip}:{config['port']}")
+        auth = do_sign_request(config, host)
         s3_method(s3_resource=s3_resource, s3_client=s3_client, endpoint_url=endpoint_url, auth=auth, **kwargs)
 
     return method_wrapper
