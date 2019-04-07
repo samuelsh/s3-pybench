@@ -50,10 +50,10 @@ TMP_FILE = 'tmpfile'
 total_uploaded_files = multiprocessing.Value('L', 0)
 total_time_spent_in_upload = multiprocessing.Value('d', 0)
 
-total_downloaded_files = multiprocessing.Value('I', 0)
+total_downloaded_files = multiprocessing.Value('L', 0)
 total_time_spent_in_download = multiprocessing.Value('d', 0)
 
-total_deleted_files = multiprocessing.Value('I', 0)
+total_deleted_files = multiprocessing.Value('L', 0)
 total_time_spent_in_deletion = multiprocessing.Value('d', 0)
 
 io_size = multiprocessing.Value('I', 0)
@@ -266,8 +266,8 @@ def s3_put_worker(**kwargs):
     # in case user selected MIXED size, we use min/max size arguments to calculate size of random data chunk
     data_chunk = DATA_BUFFERS["20M"][:random_chunk_size] if kwargs['data_chunk_size'] == 'MIXED' \
         else DATA_BUFFERS[kwargs['data_chunk_size']]
-    logger.info(f"PUT Worker started: {kwargs}")
-    logger.info(f"Selected Data chunk size {len(data_chunk)}")
+    logger.info(f"PUT Worker started: URL: {kwargs['endpoint_url']} Bucket: {kwargs['bucket_name']} "
+                f"Path: {kwargs['path']} Thread ID: {kwargs['thread_id']} Data Chunk Size: {kwargs['data_chunk_size']}")
     path = os.path.join(path, kwargs['thread_id'])
     path_counter = 100
     session = requests.Session()
@@ -304,7 +304,8 @@ def s3_get_worker(**kwargs):
     bucket_name = kwargs['bucket_name']
     path = kwargs['path']
     path = os.path.join(path, kwargs['thread_id'])
-    logger.info("GET Worker started: {}".format(kwargs))
+    logger.info(f"GET Worker started: URL: {kwargs['endpoint_url']} Bucket: {kwargs['bucket_name']} "
+                f"Path: {kwargs['path']} Thread ID: {kwargs['thread_id']} Data Chunk Size: {kwargs['data_chunk_size']}")
     path_counter = 100
     session = requests.Session()
     while not stop_event.is_set():
@@ -318,6 +319,10 @@ def s3_get_worker(**kwargs):
                 res.raise_for_status()
                 with total_downloaded_files.get_lock():
                     total_downloaded_files.value += 1
+            except requests.HTTPError as http_err:
+                if http_err.errno == 404:
+                    logger.info("Can't find objects to read, work done...")
+                    break
             except requests.ConnectionError as con_err:
                 logger.error("{} : GET {}".format(con_err.strerror, full_object_name))
             except requests.Timeout as timeout:
@@ -334,7 +339,8 @@ def s3_get_worker(**kwargs):
 def s3_delete_worker(**kwargs):
     bucket_name = kwargs['bucket_name']
     path = kwargs['path']
-    logger.info("DELETE Worker started: {}".format(kwargs))
+    logger.info(f"DELETE Worker started: URL: {kwargs['endpoint_url']} Bucket: {kwargs['bucket_name']} "
+                f"Path: {kwargs['path']} Thread ID: {kwargs['thread_id']} Data Chunk Size: {kwargs['data_chunk_size']}")
     path = os.path.join(path, kwargs['thread_id'])
     session = requests.Session()
     path_counter = 100
@@ -367,7 +373,9 @@ def mkbucket(**kwargs):
         logger.debug("Bucket {} created".format(bucket.name))
     except ClientError as boto_err:
         # allow rewriting existing bucket content
-        if boto_err.response['ResponseMetadata']['HTTPStatusCode'] != 409 and not kwargs['ignore_existing']:
+        if boto_err.response['ResponseMetadata']['HTTPStatusCode'] == 409 and kwargs['ignore_existing']:
+            pass
+        else:
             raise boto_err
 
 
@@ -392,7 +400,11 @@ def process_pool_starter(args, s3_config):
 def main():
     global io_size
     args = get_args()
-    io_size.value = DATA_CHUNKS[args.size]
+    try:
+        io_size.value = DATA_CHUNKS[args.size]
+    except KeyError:
+        # if chunk size is MIXED, io_size will be average of all possible data chunks
+        io_size.value = sum([val for val in DATA_CHUNKS.values()]) // len(DATA_CHUNKS)
     timer_thread = TimerThread(stop_event.set, interval=args.timeout)
     s3_config = config.ensure_config()
     if args.timeout > 0:
