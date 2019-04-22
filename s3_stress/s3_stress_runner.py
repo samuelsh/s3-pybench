@@ -20,8 +20,8 @@ import multiprocessing
 import threading
 from concurrent.futures import ProcessPoolExecutor
 from string import ascii_letters
-from threading import Event
 from botocore.exceptions import ClientError
+from gevent.event import Event
 from gevent.pool import Pool
 from gevent.queue import Queue
 from s3_stress.utils import server_logger
