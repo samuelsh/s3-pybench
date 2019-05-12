@@ -421,8 +421,7 @@ def main():
     finally:
         s3_process_pool.shutdown()
         print_stats(args.workload)
-        if args.timeout > 0:
-            timer_thread.cancel()
+        timer_thread.cancel()
 
 
 if __name__ == "__main__":
