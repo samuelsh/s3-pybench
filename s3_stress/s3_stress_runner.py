@@ -420,8 +420,8 @@ def process_pool_starter(args, s3_config):
             futures.append(s3_process_pool.submit(gevent_pool_starter, args.workload, bucket_name, path, args.threads,
                                                   args.metadata, args.size, args.min_size, args.max_size, args.stone,
                                                   s3_config))
-            for future in futures:
-                logger.info(f"Future {future}: {future.result()}")
+    for future in futures:
+        logger.info(f"Future {future}: {future.result()}")
 
 
 def main():
