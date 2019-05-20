@@ -226,20 +226,22 @@ def get_args():
     parser.add_argument('-w', '--workload', choices=['GET', 'PUT', 'DELETE', 'MIXED'], default="PUT",
                         help="Workload")
     parser.add_argument('-mb', '--multibucket', action="store_true", help="Creates new bucket for each process")
+    parser.add_argument('-e', '--stone', action="store_true", help="Stop on Error")
     parser.add_argument('--metadata', action="store_true", help="Generated MetaData attributes for each object")
     parser.add_argument('--timeout', type=int, help="Runtime timeout (in seconds)", default=0)
     args = parser.parse_args()
     return args
 
 
-def gevent_pool_starter(method, bucket_name, path, threads, metadata, data_chunk_size, min_size, max_size, s3_config):
+def gevent_pool_starter(method, bucket_name, path, threads, metadata, data_chunk_size, min_size, max_size, stone,
+                        s3_config):
     objects_queue = Queue()
     pool = Pool(threads)
     for i in range(threads):
         pool.apply_async(handle_http_methods(method if method != 'MIXED' else random.choice(['GET', 'PUT', 'DELETE'])),
                          kwds=dict(bucket_name=bucket_name, path=path, objects_queue=objects_queue,
                                    thread_id="{}".format(10000 + i), data_chunk_size=data_chunk_size, metadata=metadata,
-                                   min_size=min_size, max_size=max_size, config=s3_config))
+                                   min_size=min_size, max_size=max_size, stone=stone, config=s3_config))
     pool.join()
 
 
@@ -284,8 +286,14 @@ def s3_put_worker(**kwargs):
                     total_uploaded_files.value += 1
             except (requests.ConnectionError, requests.HTTPError) as requests_err:
                 logger.error("{} : PUT {}".format(requests_err.args[0], full_object_name))
+                if kwargs['stone']:
+                    stop_event.set()
+                    raise
             except requests.Timeout as timeout:
                 logger.error("PUT request {} Timed out. {}".format(full_object_name, timeout.strerror))
+                if kwargs['stone']:
+                    stop_event.set()
+                    raise
             except KeyboardInterrupt:
                 stop_event.set()
             file_counter = file_counter + 1
@@ -323,10 +331,20 @@ def s3_get_worker(**kwargs):
                 if http_err.errno == 404:
                     logger.info("Can't find objects to read, work done...")
                     break
+                else:
+                    logger.error("{} : PUT {}".format(http_err.args[0], full_object_name))
+                    if kwargs['stone']:
+                        stop_event.set()
             except requests.ConnectionError as con_err:
                 logger.error("{} : GET {}".format(con_err.strerror, full_object_name))
+                if kwargs['stone']:
+                    stop_event.set()
+                    raise
             except requests.Timeout as timeout:
                 logger.error("GET request {} Timed out. {}".format(full_object_name, timeout.strerror))
+                if kwargs['stone']:
+                    stop_event.set()
+                    raise
             except KeyboardInterrupt:
                 stop_event.set()
             file_counter = file_counter + 1
@@ -354,9 +372,14 @@ def s3_delete_worker(**kwargs):
                 session.delete(url, auth=kwargs['auth'])
             except requests.ConnectionError as con_err:
                 logger.error("{} : DELETE {}".format(con_err.strerror, full_object_name))
-                raise con_err
+                if kwargs['stone']:
+                    stop_event.set()
+                    raise
             except requests.Timeout as timeout:
                 logger.error("DELETE request {} Timed out. {}".format(full_object_name, timeout.strerror))
+                if kwargs['stone']:
+                    stop_event.set()
+                    raise
             except KeyboardInterrupt:
                 stop_event.set()
             file_counter = file_counter + 1
@@ -387,14 +410,18 @@ def process_pool_starter(args, s3_config):
         for i in range(args.processes):
             mkbucket(config=s3_config, bucket_name=f"{args.bucket}-{i}", ignore_existing=True)
 
+    futures = []
     s3_process_pool = ProcessPoolExecutor(args.processes)
     with s3_process_pool:
         for i in range(args.processes):
             path = '/' + (args.hostname + '/' if args.hostname is not None else "") + str(i)
             logger.info("Started work on path {}".format(path))
             bucket_name = args.bucket if not args.multibucket else f"{args.bucket}-{i}"
-            s3_process_pool.submit(gevent_pool_starter, args.workload, bucket_name, path, args.threads, args.metadata,
-                                   args.size, args.min_size, args.max_size, s3_config)
+            futures.append(s3_process_pool.submit(gevent_pool_starter, args.workload, bucket_name, path, args.threads,
+                                                  args.metadata, args.size, args.min_size, args.max_size, args.stone,
+                                                  s3_config))
+            for future in futures:
+                logger.info(f"Future {future}: {future.result()}")
 
 
 def main():
@@ -417,12 +444,20 @@ def main():
         stop_event.set()
     except Exception as e:
         logger.exception(e)
-        raise e
+        raise RuntimeError(f"{e}")
     finally:
+        logger.info("Shutting down process pool")
         s3_process_pool.shutdown()
+        logger.info("Printing stats")
         print_stats(args.workload)
-        timer_thread.cancel()
+        if timer_thread.is_alive():
+            logger.info("Stopping timer thread")
+            timer_thread.cancel()
+        logger.info("All task stopped. Bye Bye...")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RuntimeError:
+        exit(1)
