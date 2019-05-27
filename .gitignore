@@ -2,3 +2,4 @@
 build
 dist
 s3_stress.egg-info
+.DS_Store
