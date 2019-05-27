@@ -1,4 +1,2 @@
-# S3 Stress
-Set of Load & Stress tools for S3 server
-
-# TBD
+# S3 PyBench
+Lightweight and blazing fast S3 stress & benchmariking tool built with gevent + gipc
