@@ -1,7 +1,8 @@
+import gevent.monkey
+gevent.monkey.patch_all()
 
 import boto3
 import random
-
 from s3_stress.utils import ip_utils
 from s3_stress.utils.s3_auth_utils import do_sign_request
 

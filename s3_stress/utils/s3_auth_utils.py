@@ -1,5 +1,7 @@
-import requests
+import gevent.monkey
+gevent.monkey.patch_all()
 
+import requests
 import hmac
 import hashlib
 import datetime

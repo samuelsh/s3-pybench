@@ -11,10 +11,12 @@ __author__ = 'samuels'
 
 
 class Logger:
-    def __init__(self, output_dir="", name=__name__):
+    def __init__(self, output_dir="logs", name=__name__):
         self.output_dir = output_dir
         self._logger = logging.getLogger(name)
         self._logger.setLevel(logging.DEBUG)
+
+        os.makedirs(self.output_dir, exist_ok=True)
 
         # create console handler and set level to info
         handler = logging.StreamHandler(sys.stdout)
