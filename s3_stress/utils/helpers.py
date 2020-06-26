@@ -26,8 +26,8 @@ class TimerThread(threading.Timer):
 
 def fetch_workload_stats(total_uploaded_files, total_downloaded_files, total_time_spent_in_upload,
                          total_time_spent_in_download, io_size):
-    total_bytes_written = total_uploaded_files * io_size
-    total_bytes_read = total_downloaded_files * io_size
+    total_bytes_written = round(total_uploaded_files * io_size / consts.MB1, 2)
+    total_bytes_read = round(total_downloaded_files * io_size / consts.MB1, 2)
     average_mb_per_upload = expr_calculator(lambda: total_bytes_written / total_uploaded_files / consts.MB1)
     average_mb_per_download = expr_calculator(lambda: total_bytes_read / total_downloaded_files / consts.MB1)
     average_write_bw = expr_calculator(lambda: total_bytes_written / consts.MB1 / (total_time_spent_in_upload / 60))
@@ -37,29 +37,29 @@ def fetch_workload_stats(total_uploaded_files, total_downloaded_files, total_tim
     average_latency_write = expr_calculator(lambda: total_bytes_written / average_write_iops / 1000)
     average_latency_read = expr_calculator(lambda: total_bytes_read / average_read_iops / 1000)
 
-    logger.info(f"S3_STATS: IO chunk size: {io_size}")
+    logger.info(f"S3_STATS: IO chunk size: {io_size} bytes")
     logger.info(f"S3_STATS: Total uploaded files: {total_uploaded_files}")
     logger.info(f"S3_STATS: Total downloaded files: {total_downloaded_files}")
     logger.info(f"S3_STATS: Total time spent in upload (sec): {total_time_spent_in_upload}")
     logger.info(f"S3_STATS: Total time spent in download (sec): {total_time_spent_in_download}")
-    logger.info(f"S3_STATS: Total bytes written to storage: {total_bytes_written}")
-    logger.info(f"S3_STATS: Total bytes read from storage: {total_bytes_read}")
+    logger.info(f"S3_STATS: Total bytes written to storage: {total_bytes_written}M")
+    logger.info(f"S3_STATS: Total bytes read from storage: {total_bytes_read}M")
     logger.info(f"S3_STATS: Average MB per upload: "
-                f"{average_mb_per_upload}")
+                f"{round(average_mb_per_upload, 2)}")
     logger.info(f"S3_STATS: Average MB per download: "
-                f"{average_mb_per_download}")
+                f"{round(average_mb_per_download, 2)}")
     logger.info(f"S3_STATS: Average Write Bandwidth (MB/s): "
-                f"{average_write_bw}")
+                f"{round(average_write_bw, 2)}")
     logger.info(f"S3_STATS: Average Read Bandwidth (MB/s): "
-                f"{average_read_bw}")
+                f"{round(average_read_bw, 2)}")
     logger.info(f"S3_STATS: Average Write Latency (ms): "
-                f"{average_latency_write}")
+                f"{round(average_latency_write, 2)}")
     logger.info(f"S3_STATS: Average Read Latency (ms): "
-                f"{average_latency_read}")
+                f"{round(average_latency_read, 2)}")
     logger.info(f"S3_STATS: Average Write IOPS: "
-                f"{average_write_iops}")
+                f"{round(average_write_iops, 2)}")
     logger.info(f"S3_STATS: Average Read IOPS: "
-                f"{average_read_iops}")
+                f"{round(average_read_iops, 2)}")
 
     workload_stats = {
         'io_chunk_size': io_size,
