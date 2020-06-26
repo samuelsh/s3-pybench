@@ -31,7 +31,7 @@ def s3_connector(s3_method):
                                      endpoint_url=endpoint_url,
                                      aws_access_key_id=config['aws_access_key_id'],
                                      aws_secret_access_key=config['aws_secret_key'],
-                                     config=boto3.session.Config(config['extra_params']),
+                                     config=boto3.session.Config(**config['extra_params']),
                                      region_name='us-east-1'
                                      )
         s3_client = s3_resource.meta.client
