@@ -1,7 +1,7 @@
 
 import setuptools
 
-REQUIRES = ['gevent', 'requests', 'boto3', "gipc"]
+REQUIRES = ['gipc@git+https://github.com/vast-data/gipc.git@daff5f7', 'requests', 'boto3', "gipc"]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
