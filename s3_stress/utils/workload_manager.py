@@ -37,8 +37,9 @@ class WorkloadManager:
         logger.info(f"Process Pool [{os.getpid()}] started")
         self.event_listener_thread = threading.Thread(target=event_queue_listener,
                                                       args=(self.events_queue, self.stop_event, self._sentinel))
+        self.timer_thread = threading.Thread(target=helpers.timeout_and_signal,
+                                             args=(self.args.timeout, self.events_queue, self._sentinel))
         self.event_listener_thread.start()
-        self.timer_thread = helpers.TimerThread(self.stop_event.set, interval=self.args.timeout)
         if self.args.timeout > 0:
             self.timer_thread.start()
         if not self.args.multibucket:
@@ -52,7 +53,7 @@ class WorkloadManager:
             logger.info("Started work on path {}".format(path))
             bucket_name = self.args.bucket if not self.args.multibucket else f"{self.args.bucket}-{i}"
             self.s3_process_pool.append(
-                gipc.start_process(self.gevent_pool_starter, args=(bucket_name, )))
+                gipc.start_process(self.gevent_pool_starter, args=(bucket_name,)))
         for p in self.s3_process_pool:
             p.join()
         res = None
@@ -92,7 +93,7 @@ def event_queue_listener(events_queue, stop_event, _sentinel):
         try:
             event = events_queue.get(timeout=1)
             logger.info(f"{__name__} received event={event}")
-            if event is _sentinel:
+            if event is _sentinel or stop_event.is_set():
                 logger.info("Workload manager received stop event. Stopping the workload...")
                 stop_event.set()
                 break

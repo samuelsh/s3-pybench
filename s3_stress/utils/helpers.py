@@ -24,6 +24,11 @@ class TimerThread(threading.Timer):
             self.function(*self.args, **self.kwargs)
 
 
+def timeout_and_signal(timeout, events_queue, _sentinel):
+    gevent.sleep(timeout)
+    events_queue.put(_sentinel)
+
+
 def fetch_workload_stats(total_uploaded_files, total_downloaded_files, total_time_spent_in_upload,
                          total_time_spent_in_download, io_size):
     total_bytes_written = round(total_uploaded_files * io_size / consts.MB1, 2)
