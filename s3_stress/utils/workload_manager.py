@@ -1,8 +1,7 @@
 import gevent.monkey
-import requests
-
 gevent.monkey.patch_all()
 
+import requests
 import threading
 import multiprocessing
 import random

@@ -4,13 +4,13 @@
 S3 Stress testing tool - 2018 (c)
 """
 
-import botocore
 
 __author__ = 'samuel'
 
 import gevent.monkey
 gevent.monkey.patch_all()
 
+import botocore
 import argparse
 from gevent import queue
 from s3_stress.utils import consts, workload_manager

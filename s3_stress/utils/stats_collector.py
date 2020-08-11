@@ -1,5 +1,4 @@
 import gevent.monkey
-
 gevent.monkey.patch_all()
 
 from s3_stress.utils import helpers, consts
