@@ -141,7 +141,7 @@ def s3_delete_worker(**kwargs):
                 with kwargs['stats_collector'].total_deleted_files.get_lock():
                     kwargs['stats_collector'].total_deleted_files.value += 1
             except (requests.ConnectionError, requests.HTTPError) as requests_err:
-                logger.error("{} : DELETE {}".format(requests_err.strerror, full_object_name))
+                logger.error("{} : DELETE {}".format(requests_err, full_object_name))
                 if kwargs['stone']:
                     kwargs['results_queue'].put(requests_err)
                     kwargs['stop_event'].set()
