@@ -58,7 +58,7 @@ class WorkloadManager:
         res = None
         while True:
             try:
-                res = self.results_queue.get()
+                res = self.results_queue.get_nowait()
                 logger.info(f"Results queue res={res}")
             except (requests.ConnectionError, requests.HTTPError, requests.Timeout) as requests_err:
                 raise RuntimeError(f"Future {res} raised exception: {requests_err}")
@@ -92,7 +92,7 @@ def event_queue_listener(events_queue, stop_event, _sentinel):
         try:
             event = events_queue.get(timeout=1)
             logger.info(f"{__name__} received event={event}")
-            if event is _sentinel or stop_event.is_set():
+            if event is _sentinel:
                 logger.info("Workload manager received stop event. Stopping the workload...")
                 stop_event.set()
                 break
