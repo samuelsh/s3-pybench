@@ -62,7 +62,7 @@ def s3_put_worker(**kwargs):
 
 @profilers.download_profiler
 def s3_get(session, url, **kwargs):
-    return session.get(url, **kwargs)
+    return session.get(url, auth=kwargs['auth'])
 
 
 @connectors.s3_connector
@@ -116,7 +116,7 @@ def s3_get_worker(**kwargs):
 
 @profilers.delete_profiler
 def s3_delete(session, url, **kwargs):
-    return session.delete(url, **kwargs)
+    return session.delete(url, auth=kwargs['auth'])
 
 
 @connectors.s3_connector
