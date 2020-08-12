@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="s3_stress",
-    version="1.0.0",
+    version="0.9.1",
     author="Samuel Shapiro",
     author_email="samuel@vast.com",
     description="S3 load & stress tool",
