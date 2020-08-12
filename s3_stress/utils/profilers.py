@@ -42,10 +42,10 @@ def delete_profiler(f):
     Profiler decorator to measure duration of S3 DELETE method
     """
 
-    def wrapper(**kwargs):
+    def wrapper(session, url, **kwargs):
         total_time_spent_in_deletion = kwargs['counter']
         start = timer()
-        f(**kwargs)
+        f(session, url, **kwargs)
         end = timer()
         with total_time_spent_in_deletion.get_lock():
             total_time_spent_in_deletion.value += (end - start)
