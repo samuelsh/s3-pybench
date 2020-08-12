@@ -45,9 +45,10 @@ def delete_profiler(f):
     def wrapper(session, url, **kwargs):
         total_time_spent_in_deletion = kwargs['counter']
         start = timer()
-        f(session, url, **kwargs)
+        res = f(session, url, **kwargs)
         end = timer()
         with total_time_spent_in_deletion.get_lock():
             total_time_spent_in_deletion.value += (end - start)
+        return res
 
     return wrapper
